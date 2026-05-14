@@ -11,10 +11,12 @@ class Request(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
         PROCESSING = 'processing', 'Processing'
-        READY = 'ready', 'Ready'
-        CLAIMED = 'claimed', 'Claimed'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        COMPLETED = 'completed', 'Completed'
+        CANCELLED = 'cancelled', 'Cancelled'
     
-    status = models.CharField(max_length=15, choices=Status.choices)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
     quantity = models.IntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     est_release_date = models.DateTimeField()
@@ -25,6 +27,7 @@ class Request(models.Model):
         blank=True, 
         related_name='processed_requests'
     )
+    processed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
