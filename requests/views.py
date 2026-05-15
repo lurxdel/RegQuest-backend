@@ -6,11 +6,26 @@ from django.shortcuts import get_object_or_404
 from .models import Request
 from .serializers import RequestSerializer
 from accounts.models import User
+from _core.permissions import IsAdminOrStaff, IsAdminUser
 
 class RequestViewSet(viewsets.ModelViewSet):
     queryset = Request.objects.all()
     serializer_class = RequestSerializer
     permission_classes = [IsAuthenticated]
+
+    permission_classes_by_action = {
+        'list': [IsAuthenticated],
+        'retrieve': [IsAuthenticated],
+        'create': [IsAuthenticated],
+        'update': [IsAuthenticated, IsAdminOrStaff],
+        'partial_update': [IsAuthenticated, IsAdminOrStaff],
+        'destroy': [IsAuthenticated, IsAdminUser],
+    }
+
+    def get_permissions(self):
+        if hasattr(self, 'permission_classes_by_action') and self.action in self.permission_classes_by_action:
+            return [permission() for permission in self.permission_classes_by_action[self.action]]
+        return super().get_permissions()
 
     def get_queryset(self):
         user = self.request.user
