@@ -13,14 +13,12 @@ from .serializers import (
     RegisterSerializer
 )
 
-# REGISTER
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
 
 
-# LOGIN (FIXED)
 from rest_framework.decorators import api_view, permission_classes
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -73,12 +71,41 @@ class UserViewset(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return User.objects.none()
+            
+        if user.role == User.Roles.STUDENT:
+            return User.objects.filter(id=user.id)
+            
+        return User.objects.all()
+
 
 class StudentInfoViewSet(viewsets.ModelViewSet):
     queryset = StudentInfo.objects.all()
     serializer_class = StudentInfoSerializer
 
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return StudentInfo.objects.none()
+            
+        if user.role == User.Roles.STUDENT:
+            return StudentInfo.objects.filter(user=user)
+        return StudentInfo.objects.all()
+
 
 class StaffInfoViewSet(viewsets.ModelViewSet):
     queryset = StaffInfo.objects.all()
     serializer_class = StaffInfoSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return StaffInfo.objects.none()
+            
+        if user.role == User.Roles.STUDENT:
+            return StaffInfo.objects.none()
+            
+        return StaffInfo.objects.all()

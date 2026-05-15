@@ -5,11 +5,24 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from .models import Request
 from .serializers import RequestSerializer
+from accounts.models import User
 
 class RequestViewSet(viewsets.ModelViewSet):
     queryset = Request.objects.all()
     serializer_class = RequestSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        
+        if not user.is_authenticated:
+            return Request.objects.none()
+
+        if user.role == User.Roles.STUDENT:
+            return Request.objects.filter(user=user)
+
+        return Request.objects.all()
+
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
