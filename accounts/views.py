@@ -1,17 +1,28 @@
 from django.contrib.auth import authenticate
 from rest_framework import viewsets, generics, status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User, StudentInfo, StaffInfo
-from .serializers import (
-    UserSerializer,
-    StudentInfoSerializer,
-    StaffInfoSerializer,
-    RegisterSerializer
-)
+from .serializers import UserSerializer, StudentInfoSerializer, StaffInfoSerializer, RegisterSerializer
+
+from _core.permissions import IsAdminUser, IsStaffUser, IsStudentUser
+
+#demo endpoints (for frontend testing only)
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_demo(request):
+    return Response({"message": "Hello Admin! You have full access."})
+@api_view(['GET'])
+@permission_classes([IsStaffUser])
+def staff_demo(request):
+    return Response({"message": "Hello Staff! You can manage requests."})
+@api_view(['GET'])
+@permission_classes([IsStudentUser])
+def student_demo(request):
+    return Response({"message": "Hello Student! You can view your own data."})
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -66,8 +77,7 @@ def login(request):
     })
 
 
-# VIEWSETS
-class UserViewset(viewsets.ModelViewSet):
+class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
@@ -80,6 +90,31 @@ class UserViewset(viewsets.ModelViewSet):
             return User.objects.filter(id=user.id)
             
         return User.objects.all()
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def me(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def assign_role(self, request, pk=None):
+        user_to_modify = self.get_object()
+        new_role = request.data.get('role')
+
+        if new_role not in dict(User.Roles.choices):
+            return Response(
+                {"error": f"Invalid role. Choices are: {list(dict(User.Roles.choices).keys())}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_to_modify.role = new_role
+        user_to_modify.save(update_fields=['role'])
+        
+        return Response({
+            "message": "Role updated successfully",
+            "user_id": user_to_modify.id,
+            "new_role": new_role
+        })
 
 
 class StudentInfoViewSet(viewsets.ModelViewSet):
