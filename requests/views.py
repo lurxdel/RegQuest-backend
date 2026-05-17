@@ -1,4 +1,4 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from .models import Request
 from .serializers import RequestSerializer
 from accounts.models import User
-from _core.permissions import IsAdminOrStaff, IsAdminUser
+from _core.permissions import IsAdminOrStaff, IsAdminUser, CanCancelOwnPendingRequest
 
 class RequestViewSet(viewsets.ModelViewSet):
     queryset = Request.objects.all()
@@ -20,6 +20,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         'update': [IsAuthenticated, IsAdminOrStaff],
         'partial_update': [IsAuthenticated, IsAdminOrStaff],
         'destroy': [IsAuthenticated, IsAdminUser],
+        'cancel': [CanCancelOwnPendingRequest],
     }
 
     def get_permissions(self):
@@ -47,3 +48,16 @@ class RequestViewSet(viewsets.ModelViewSet):
         req = get_object_or_404(Request, tracking_number=tracking_number)
         serializer = self.get_serializer(req)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        req = self.get_object()
+        req.status = Request.Status.CANCELLED
+        req.save(update_fields=['status', 'updated_at'])
+        return Response(
+            {
+            "message": "Request cancelled successfully", 
+            "status": req.status
+            }, 
+            status=status.HTTP_200_OK
+    )
