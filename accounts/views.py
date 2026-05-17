@@ -30,7 +30,6 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
 
-from rest_framework.decorators import api_view, permission_classes
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
@@ -62,7 +61,7 @@ def login(request):
         "univ_id": user.univ_id
     }
 
-    if user.role == 'student':
+    if user.role == User.Roles.STUDENT:
         try:
             student_info = StudentInfo.objects.get(user=user)
             user_data["course"] = student_info.course
