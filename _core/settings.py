@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'accounts',
     'documents',
-    'requests',
+    'credential_requests',
     'corsheaders',
 ]
 
