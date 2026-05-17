@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('requests', '0002_request_tracking_number'),
+        ('credential_requests', '0002_request_tracking_number'),
     ]
 
     operations = [
