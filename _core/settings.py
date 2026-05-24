@@ -151,3 +151,23 @@ SIMPLE_JWT = {
 
     'SIGNING_KEY': env('DJANGO_JWT_SIGNING_KEY', default=SECRET_KEY),
 }
+
+# Force HTTPS redirect in production environments
+SECURE_SSL_REDIRECT = env('DJANGO_SECURE_SSL_REDIRECT', default=False)
+# Ensure cookies are only sent over HTTPS if SSL redirect is enabled
+SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
+CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
+# ==============================================================================
+# Django Channels / Redis Configuration (Planned)
+# ==============================================================================
+# This block future-proofs the app. If a REDIS_URL is provided, it dynamically 
+# configures the channel layer.
+if env('REDIS_URL', default=None):
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [env('REDIS_URL')],
+            },
+        },
+    }
