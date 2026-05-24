@@ -90,6 +90,9 @@ DATABASES = {
     }
 }
 
+if env('DATABASE_URL', default=None):
+    DATABASES['default'] = env.db('DATABASE_URL')
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -145,4 +148,6 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+
+    'SIGNING_KEY': env('DJANGO_JWT_SIGNING_KEY', default=SECRET_KEY),
 }
