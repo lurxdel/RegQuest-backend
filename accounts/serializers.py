@@ -40,7 +40,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         year_level = validated_data.pop('year_level', None)
     
         if 'username' not in validated_data:
-            validated_data['username'] = validated_data['email'].split('@')[0]
+            import uuid
+            base_username = validated_data['email'].split('@')[0]
+            validated_data['username'] = f"{base_username}_{uuid.uuid4().hex[:8]}"
             
         validated_data['role'] = 'student'
             
