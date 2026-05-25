@@ -15,6 +15,12 @@ from .serializers import (
 
 from _core.permissions import IsAdminUser, IsStaffUser, IsStudentUser, IsAdminOrStaff
 
+from django.utils import timezone
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q
+from .models import StudentProfile
+from .serializers import StudentProfileAdminSerializer, StudentVerificationDecisionSerializer
+
 #demo endpoints (for frontend testing only)
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
@@ -190,41 +196,56 @@ class StaffInfoViewSet(viewsets.ModelViewSet):
             
         return StaffInfo.objects.all()
 
-
-class StudentProfileViewSet(viewsets.GenericViewSet,
-                            mixins.ListModelMixin,
-                            mixins.RetrieveModelMixin):
+class VerificationPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+class StudentProfileViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    GET  /api/v1/accounts/verifications/           — list all profiles (admin/staff)
-    GET  /api/v1/accounts/verifications/?status=PENDING — filter by status
-    POST /api/v1/accounts/verifications/{id}/verify/ — approve or reject
+    Admin-only ViewSet. 
+    ReadOnlyModelViewSet prevents native POST/PUT/PATCH/DELETE.
+    Modifications only allowed via the explicit secure `verify` action.
     """
-    serializer_class = StudentProfileSerializer
-    permission_classes = [IsAdminOrStaff]
-
+    # Use select_related to optimize DB queries when fetching the joined user and academic info
+    queryset = StudentProfile.objects.all().select_related('user', 'user__studentinfo').order_by('-user__created_at')
+    permission_classes = [IsAdminUser] # SECURITY: Admin ONLY. Staff blocked.
+    pagination_class = VerificationPagination
+    def get_serializer_class(self):
+        # Dynamically route to the strict decision serializer when verifying
+        if self.action == 'verify':
+            return StudentVerificationDecisionSerializer
+        return StudentProfileAdminSerializer
     def get_queryset(self):
-        qs = StudentProfile.objects.select_related('user', 'user__studentinfo').all()
-        status_filter = self.request.query_params.get('status')
-        if status_filter:
-            qs = qs.filter(verification_status=status_filter.upper())
-        return qs
-
-    @action(detail=True, methods=['post'], url_path='verify')
+        queryset = super().get_queryset()
+        status_param = self.request.query_params.get('status', None)
+        search_param = self.request.query_params.get('search', None)
+        if status_param:
+            queryset = queryset.filter(verification_status=status_param.upper())
+        
+        if search_param:
+            # Future-proof search across multiple joined fields
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=search_param) |
+                Q(user__last_name__icontains=search_param) |
+                Q(user__email__icontains=search_param) |
+                Q(user__univ_id__icontains=search_param)
+            )
+        return queryset
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def verify(self, request, pk=None):
         profile = self.get_object()
-        serializer = StudentProfileVerifySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        new_status = serializer.validated_data['verification_status']
-        profile.verification_status = new_status
-        profile.verified_by = request.user
-
-        from django.utils import timezone
-        profile.verified_at = timezone.now()
-        profile.save(update_fields=['verification_status', 'verified_by', 'verified_at'])
-
-        return Response({
-            'id': profile.id,
-            'verification_status': profile.verification_status,
-            'message': f'Profile {new_status.lower()} successfully.',
-        })
+        serializer = self.get_serializer(profile, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            # SECURITY: Force verified_by and verified_at server-side.
+            # Even if an attacker sent 'verified_by' in the JSON, the serializer 
+            # drops it, and we explicitly override it here using the authenticated token.
+            serializer.save(
+                verified_by=request.user,
+                verified_at=timezone.now()
+            )
+            return Response(
+                {"message": f"Profile updated successfully."}, 
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -10,7 +10,7 @@ from datetime import timedelta
 from .models import Request
 from .serializers import RequestSerializer
 from accounts.models import User
-from _core.permissions import IsAdminOrStaff, IsAdminUser, CanCancelOwnPendingRequest
+from _core.permissions import IsAdminOrStaff, IsAdminUser, CanCancelOwnPendingRequest, IsVerifiedIfStudent
 
 class RequestViewSet(viewsets.ModelViewSet):
     queryset = Request.objects.all()
@@ -20,7 +20,7 @@ class RequestViewSet(viewsets.ModelViewSet):
     permission_classes_by_action = {
         'list': [IsAuthenticated],
         'retrieve': [IsAuthenticated],
-        'create': [IsAuthenticated],
+        'create': [IsAuthenticated, IsVerifiedIfStudent],
         'update': [IsAuthenticated, IsAdminOrStaff],
         'partial_update': [IsAuthenticated, IsAdminOrStaff],
         'destroy': [IsAuthenticated, IsAdminUser],

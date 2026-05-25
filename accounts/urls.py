@@ -1,14 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import UserViewSet, StudentInfoViewSet, StaffInfoViewSet, StudentProfileViewSet, RegisterView, admin_demo, staff_demo, student_demo, logout_view, login
+from .views import UserViewSet, StudentInfoViewSet, StaffInfoViewSet, RegisterView, StudentProfileViewSet, admin_demo, staff_demo, student_demo, logout_view, login
 
 router = DefaultRouter()
 
 router.register(r'users', UserViewSet)
 router.register(r'studentinfo', StudentInfoViewSet)
 router.register(r'staffinfo', StaffInfoViewSet)
-router.register(r'verifications', StudentProfileViewSet, basename='verifications')
+router.register(r'verifications', StudentProfileViewSet, basename='verification')
 
 urlpatterns = [
     path('', include(router.urls)),
