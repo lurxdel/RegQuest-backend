@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.core.exceptions import ObjectDoesNotExist
 from .models import User, StudentInfo, StaffInfo, StudentProfile
 
 class UserSerializer(serializers.ModelSerializer):
@@ -18,6 +19,54 @@ class StaffInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = StaffInfo
         fields = ['user', 'position']
+
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    """Full read-only view of a StudentProfile for the admin verification queue."""
+    # Flatten the related user and student-info fields for the table
+    first_name   = serializers.CharField(source='user.first_name', read_only=True)
+    last_name    = serializers.CharField(source='user.last_name',  read_only=True)
+    email        = serializers.EmailField(source='user.email',     read_only=True)
+    univ_id      = serializers.CharField(source='user.univ_id',    read_only=True)
+    course       = serializers.SerializerMethodField()
+    year_level   = serializers.SerializerMethodField()
+    id_image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentProfile
+        fields = [
+            'id', 'first_name', 'last_name', 'email', 'univ_id',
+            'course', 'year_level', 'id_image_url', 'verification_status',
+            'verified_at',
+        ]
+
+    def get_course(self, obj):
+        try:
+            return obj.user.studentinfo.course
+        except (AttributeError, ObjectDoesNotExist):
+            return None
+
+    def get_year_level(self, obj):
+        try:
+            return obj.user.studentinfo.year_level
+        except (AttributeError, ObjectDoesNotExist):
+            return None
+
+    def get_id_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.id_image and request:
+            return request.build_absolute_uri(obj.id_image.url)
+        return None
+
+
+class StudentProfileVerifySerializer(serializers.Serializer):
+    """Payload accepted by the verify/ action."""
+    verification_status = serializers.ChoiceField(
+        choices=['APPROVED', 'REJECTED']
+    )
+    verification_notes = serializers.CharField(
+        required=False, allow_blank=True, default=''
+    )
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})

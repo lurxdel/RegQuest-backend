@@ -1,5 +1,5 @@
 from django.contrib.auth import authenticate
-from rest_framework import viewsets, generics, status
+from rest_framework import viewsets, generics, status, mixins
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -7,10 +7,13 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import User, StudentInfo, StaffInfo
-from .serializers import UserSerializer, StudentInfoSerializer, StaffInfoSerializer, RegisterSerializer
+from .models import User, StudentInfo, StaffInfo, StudentProfile
+from .serializers import (
+    UserSerializer, StudentInfoSerializer, StaffInfoSerializer,
+    RegisterSerializer, StudentProfileSerializer, StudentProfileVerifySerializer,
+)
 
-from _core.permissions import IsAdminUser, IsStaffUser, IsStudentUser
+from _core.permissions import IsAdminUser, IsStaffUser, IsStudentUser, IsAdminOrStaff
 
 #demo endpoints (for frontend testing only)
 @api_view(['GET'])
@@ -186,3 +189,42 @@ class StaffInfoViewSet(viewsets.ModelViewSet):
             return StaffInfo.objects.none()
             
         return StaffInfo.objects.all()
+
+
+class StudentProfileViewSet(viewsets.GenericViewSet,
+                            mixins.ListModelMixin,
+                            mixins.RetrieveModelMixin):
+    """
+    GET  /api/v1/accounts/verifications/           — list all profiles (admin/staff)
+    GET  /api/v1/accounts/verifications/?status=PENDING — filter by status
+    POST /api/v1/accounts/verifications/{id}/verify/ — approve or reject
+    """
+    serializer_class = StudentProfileSerializer
+    permission_classes = [IsAdminOrStaff]
+
+    def get_queryset(self):
+        qs = StudentProfile.objects.select_related('user', 'user__studentinfo').all()
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(verification_status=status_filter.upper())
+        return qs
+
+    @action(detail=True, methods=['post'], url_path='verify')
+    def verify(self, request, pk=None):
+        profile = self.get_object()
+        serializer = StudentProfileVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        new_status = serializer.validated_data['verification_status']
+        profile.verification_status = new_status
+        profile.verified_by = request.user
+
+        from django.utils import timezone
+        profile.verified_at = timezone.now()
+        profile.save(update_fields=['verification_status', 'verified_by', 'verified_at'])
+
+        return Response({
+            'id': profile.id,
+            'verification_status': profile.verification_status,
+            'message': f'Profile {new_status.lower()} successfully.',
+        })
