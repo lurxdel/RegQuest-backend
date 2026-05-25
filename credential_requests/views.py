@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
-from django.db.models import Count
+from django.db.models import Count, Avg, F, Q
 from django.db.models.functions import TruncDate, TruncWeek
 from django.utils import timezone
 from datetime import timedelta
@@ -146,19 +146,31 @@ class RequestViewSet(viewsets.ModelViewSet):
 
         # Staff performance
         staff_users = User.objects.filter(role__in=[User.Roles.STAFF, User.Roles.ADMIN])
+        
+        stats_qs = (
+            Request.objects
+            .filter(processed_by__in=staff_users)
+            .values('processed_by')
+            .annotate(
+                completed=Count('id', filter=Q(status=Request.Status.COMPLETED)),
+                pending=Count('id', filter=Q(status__in=[Request.Status.PENDING, Request.Status.PROCESSING])),
+                avg_duration=Avg(F('processed_at') - F('created_at'), filter=Q(status=Request.Status.COMPLETED, processed_at__isnull=False))
+            )
+        )
+        stats_map = {row['processed_by']: row for row in stats_qs}
+
         staff_performance = []
         for staff in staff_users:
-            completed = Request.objects.filter(processed_by=staff, status=Request.Status.COMPLETED).count()
-            pending = Request.objects.filter(
-                processed_by=staff, status__in=[Request.Status.PENDING, Request.Status.PROCESSING]
-            ).count()
-            completed_qs = Request.objects.filter(
-                processed_by=staff, status=Request.Status.COMPLETED, processed_at__isnull=False
-            )
+            stats = stats_map.get(staff.id, {})
+            completed = stats.get('completed', 0)
+            pending = stats.get('pending', 0)
+            avg_duration = stats.get('avg_duration')
+
             avg_days = None
-            if completed_qs.exists():
-                durations = [(r.processed_at - r.created_at).total_seconds() / 86400 for r in completed_qs]
-                avg_days = round(sum(durations) / len(durations), 1)
+            if avg_duration is not None:
+                # avg_duration is a timedelta object on Python side
+                avg_days = round(avg_duration.total_seconds() / 86400, 1)
+
             staff_performance.append({
                 'id': staff.id,
                 'name': f'{staff.first_name} {staff.last_name}'.strip() or staff.username,
