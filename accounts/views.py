@@ -3,7 +3,9 @@ from rest_framework import viewsets, generics, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User, StudentInfo, StaffInfo
 from .serializers import UserSerializer, StudentInfoSerializer, StaffInfoSerializer, RegisterSerializer
@@ -24,10 +26,16 @@ def staff_demo(request):
 def student_demo(request):
     return Response({"message": "Hello Student! You can view your own data."})
 
+class CustomTokenObtainPairView(TokenObtainPairView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'register'
 
 
 @api_view(['POST'])
