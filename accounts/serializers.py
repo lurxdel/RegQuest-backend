@@ -67,3 +67,36 @@ class RegisterSerializer(serializers.ModelSerializer):
             )
             
         return user
+    
+class StudentProfileAdminSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    email = serializers.CharField(source='user.email', read_only=True)
+    univ_id = serializers.CharField(source='user.univ_id', read_only=True)
+    
+    course = serializers.CharField(source='user.studentinfo.course', read_only=True, default="N/A")
+    year_level = serializers.IntegerField(source='user.studentinfo.year_level', read_only=True, default=0)
+    id_image_url = serializers.SerializerMethodField()
+    class Meta:
+        model = StudentProfile
+        fields = [
+            'id', 'first_name', 'last_name', 'email', 'univ_id', 'course', 'year_level',
+            'id_image_url', 'verification_status', 'verification_notes', 'verified_at'
+        ]
+        read_only_fields = fields
+    def get_id_image_url(self, obj):
+        if obj.id_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.id_image.url)
+        return None
+        
+class StudentVerificationDecisionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentProfile
+        fields = ['verification_status', 'verification_notes']
+        
+    def validate_verification_status(self, value):
+        if value not in [StudentProfile.VerificationStatus.APPROVED, StudentProfile.VerificationStatus.REJECTED]:
+            raise serializers.ValidationError("Status must be explicitly APPROVED or REJECTED.")
+        return value

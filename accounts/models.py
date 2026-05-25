@@ -65,6 +65,7 @@ class StudentProfile(models.Model):
         choices=VerificationStatus.choices, 
         default=VerificationStatus.PENDING
     )
+    verification_notes = models.TextField(blank=True, null=True)
     verified_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.SET_NULL, 

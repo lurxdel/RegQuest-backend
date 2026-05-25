@@ -52,3 +52,25 @@ class CanCancelOwnPendingRequest(permissions.BasePermission):
             hasattr(obj, 'user') and obj.user == request.user and 
             hasattr(obj, 'status') and obj.status == "pending"
         )
+
+class IsVerifiedIfStudent(permissions.BasePermission):
+    """
+    If the user is a student, they must have an APPROVED verification_profile.
+    Staff and Admins bypass this check.
+    """
+    # This automatically sends a 403 Forbidden with this exact detail message
+    message = "Your account is pending verification. You cannot submit requests yet."
+    
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+            
+        if user.role == User.Roles.STUDENT:
+            # Check the reverse relation to the OneToOneField
+            if hasattr(user, 'verification_profile'):
+                return user.verification_profile.verification_status == 'APPROVED'
+            return False
+            
+        # Admins and Staff bypass this check
+        return True
