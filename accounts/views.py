@@ -3,7 +3,9 @@ from rest_framework import viewsets, generics, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import User, StudentInfo, StaffInfo
 from .serializers import UserSerializer, StudentInfoSerializer, StaffInfoSerializer, RegisterSerializer
@@ -24,10 +26,16 @@ def staff_demo(request):
 def student_demo(request):
     return Response({"message": "Hello Student! You can view your own data."})
 
+class CustomTokenObtainPairView(TokenObtainPairView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'register'
 
 
 @api_view(['POST'])
@@ -75,10 +83,34 @@ def login(request):
         "user": user_data
     })
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    try:
+        refresh_token = request.data.get("refresh")
+        if not refresh_token:
+            return Response(
+                {"error": "Refresh token is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        token = RefreshToken(refresh_token)
+        token.blacklist()
+        return Response(
+            {"message": "Successfully logged out"}, 
+            status=status.HTTP_200_OK
+        )
+    except Exception as e:
+        return Response(
+            {"error": "Invalid or expired token"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    http_method_names = ['get', 'patch', 'head', 'options']
 
     def get_queryset(self):
         user = self.request.user
@@ -119,6 +151,7 @@ class UserViewSet(viewsets.ModelViewSet):
 class StudentInfoViewSet(viewsets.ModelViewSet):
     queryset = StudentInfo.objects.all()
     serializer_class = StudentInfoSerializer
+    http_method_names = ['get', 'patch', 'head', 'options']
 
     def get_queryset(self):
         user = self.request.user
@@ -133,6 +166,7 @@ class StudentInfoViewSet(viewsets.ModelViewSet):
 class StaffInfoViewSet(viewsets.ModelViewSet):
     queryset = StaffInfo.objects.all()
     serializer_class = StaffInfoSerializer
+    http_method_names = ['get', 'patch', 'head', 'options']
 
     def get_queryset(self):
         user = self.request.user

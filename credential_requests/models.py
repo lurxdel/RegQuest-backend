@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 from documents.models import Document
+from django.utils import timezone
+from datetime import timedelta
 import uuid
 
 # Create your models here.
@@ -19,7 +21,10 @@ class Request(models.Model):
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
     quantity = models.IntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
-    est_release_date = models.DateTimeField()
+    est_release_date = models.DateTimeField(
+        null=True,
+        blank=True
+    )
     processed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.PROTECT, 
@@ -32,8 +37,15 @@ class Request(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
+
         if not self.tracking_number:
             self.tracking_number = f"REQ-{uuid.uuid4().hex[:8].upper()}"
+
+        if not self.est_release_date:
+            self.est_release_date = (
+                timezone.now() + timedelta(days=5)
+            )
+
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -5,6 +5,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id','email','univ_id','first_name','middle_name','last_name','role']
+        read_only_fields = ['id', 'email', 'univ_id', 'role']
 
 class StudentInfoSerializer(serializers.ModelSerializer):
     user  = UserSerializer(read_only=True)
@@ -25,7 +26,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'password', 'first_name', 'last_name', 'role', 'username', 'univ_id', 'course', 'year_level']
+        fields = ['email', 'password', 'first_name', 'last_name', 'username', 'univ_id', 'course', 'year_level']
         extra_kwargs = {
             'first_name': {'required': False},
             'last_name': {'required': False},
@@ -40,6 +41,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     
         if 'username' not in validated_data:
             validated_data['username'] = validated_data['email'].split('@')[0]
+            
+        validated_data['role'] = 'student'
             
         user = User(**validated_data)
         user.set_password(password)
