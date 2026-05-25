@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, StudentInfo, StaffInfo
+from .models import User, StudentInfo, StaffInfo, StudentProfile
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,10 +23,11 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
     course = serializers.CharField(write_only=True, required=False, allow_blank=True)
     year_level = serializers.IntegerField(write_only=True, required=False)
+    id_image = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
         model = User
-        fields = ['email', 'password', 'first_name', 'last_name', 'username', 'univ_id', 'course', 'year_level']
+        fields = ['email', 'password', 'first_name', 'last_name', 'username', 'univ_id', 'course', 'year_level', 'id_image']
         extra_kwargs = {
             'first_name': {'required': False},
             'last_name': {'required': False},
@@ -38,6 +39,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password')
         course = validated_data.pop('course', None)
         year_level = validated_data.pop('year_level', None)
+        id_image = validated_data.pop('id_image', None)
         
         if validated_data.get('univ_id') == "":
             validated_data['univ_id'] = None
@@ -58,6 +60,10 @@ class RegisterSerializer(serializers.ModelSerializer):
                 user=user,
                 course=course or 'Not Specified',
                 year_level=year_level or 1
+            )
+            StudentProfile.objects.create(
+                user=user,
+                id_image=id_image
             )
             
         return user

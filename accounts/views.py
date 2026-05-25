@@ -30,10 +30,13 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'login'
 
+from rest_framework.parsers import MultiPartParser, FormParser
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
+    parser_classes = (MultiPartParser, FormParser)
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'register'
 
