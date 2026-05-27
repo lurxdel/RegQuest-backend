@@ -1,5 +1,5 @@
 from django.contrib.auth import authenticate
-from rest_framework import viewsets, generics, status
+from rest_framework import viewsets, generics, status, mixins
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -7,10 +7,13 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import User, StudentInfo, StaffInfo
-from .serializers import UserSerializer, StudentInfoSerializer, StaffInfoSerializer, RegisterSerializer
+from .models import User, StudentInfo, StaffInfo, StudentProfile
+from .serializers import (
+    UserSerializer, StudentInfoSerializer, StaffInfoSerializer,
+    RegisterSerializer, StudentProfileSerializer, StudentProfileVerifySerializer,
+)
 
-from _core.permissions import IsAdminUser, IsStaffUser, IsStudentUser
+from _core.permissions import IsAdminUser, IsStaffUser, IsStudentUser, IsAdminOrStaff
 
 from django.utils import timezone
 from rest_framework.pagination import PageNumberPagination

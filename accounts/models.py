@@ -57,7 +57,9 @@ class StudentProfile(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='verification_profile')
     id_image = models.ImageField(
-        upload_to='id_images/', 
+        upload_to='id_images/',
+        blank=True,
+        null=True,
         validators=[validate_image_extension, validate_image_size]
     )
     verification_status = models.CharField(
