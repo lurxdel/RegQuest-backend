@@ -128,7 +128,10 @@ def logout_view(request):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    http_method_names = ['get', 'patch', 'head', 'options']
+    http_method_names = ['get', 'patch', 'post', 'head', 'options']
+
+    def create(self, request, *args, **kwargs):
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def get_queryset(self):
         user = self.request.user
@@ -144,6 +147,54 @@ class UserViewSet(viewsets.ModelViewSet):
     def me(self, request):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def toggle_active(self, request, pk=None):
+        user_to_modify = self.get_object()
+        user_to_modify.is_active = not user_to_modify.is_active
+        user_to_modify.save(update_fields=['is_active'])
+        return Response({
+            "message": "User status updated",
+            "is_active": user_to_modify.is_active
+        })
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    def create_staff(self, request):
+        email = request.data.get('email')
+        name = request.data.get('name', '')
+        role = request.data.get('role', User.Roles.STAFF)
+        
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        first_name = name.split()[0] if name else ''
+        last_name = " ".join(name.split()[1:]) if len(name.split()) > 1 else ''
+
+        try:
+            import uuid
+            user = User(
+                email=email,
+                username=email.split('@')[0] + "_" + uuid.uuid4().hex[:8],
+                first_name=first_name,
+                last_name=last_name,
+                role=role,
+                is_active=True
+            )
+            user.set_password("RegQuest@123")
+            user.save()
+            StaffInfo.objects.create(
+                user=user,
+                position="Staff Member" if role == User.Roles.STAFF else "System Administrator"
+            )
+            return Response({
+                "message": "User created successfully",
+                "id": user.id,
+                "email": user.email,
+                "role": user.role,
+                "is_active": user.is_active
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def assign_role(self, request, pk=None):
@@ -249,3 +300,34 @@ class StudentProfileViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_200_OK
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def update_profile(self, request, pk=None):
+        profile = self.get_object()
+        user = profile.user
+        
+        # update user fields
+        update_user_fields = []
+        if 'first_name' in request.data:
+            user.first_name = request.data['first_name']
+            update_user_fields.append('first_name')
+        if 'last_name' in request.data:
+            user.last_name = request.data['last_name']
+            update_user_fields.append('last_name')
+        if 'univ_id' in request.data:
+            val = request.data['univ_id']
+            user.univ_id = None if not val else val
+            update_user_fields.append('univ_id')
+            
+        if update_user_fields:
+            user.save(update_fields=update_user_fields)
+
+        # update student info fields
+        if hasattr(user, 'studentinfo'):
+            if 'course' in request.data:
+                user.studentinfo.course = request.data['course']
+            if 'year_level' in request.data:
+                user.studentinfo.year_level = request.data['year_level']
+            user.studentinfo.save(update_fields=['course', 'year_level'])
+            
+        return Response({"message": "Profile updated successfully"}, status=status.HTTP_200_OK)

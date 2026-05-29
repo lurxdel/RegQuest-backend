@@ -190,3 +190,5 @@ if env('REDIS_URL', default=None):
             },
         },
     }
+# Trigger restart
+

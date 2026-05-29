@@ -5,8 +5,8 @@ from .models import User, StudentInfo, StaffInfo, StudentProfile
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id','email','univ_id','first_name','middle_name','last_name','role']
-        read_only_fields = ['id', 'email', 'univ_id', 'role']
+        fields = ['id','email','univ_id','first_name','middle_name','last_name','role','is_active']
+        read_only_fields = ['id', 'email', 'univ_id', 'role', 'is_active']
 
 class StudentInfoSerializer(serializers.ModelSerializer):
     user  = UserSerializer(read_only=True)
