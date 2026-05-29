@@ -21,6 +21,7 @@ class Request(models.Model):
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
     quantity = models.IntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    document_summary = models.TextField(blank=True, null=True, help_text="Summary of all documents requested and their copies")
     est_release_date = models.DateTimeField(
         null=True,
         blank=True
@@ -50,3 +51,21 @@ class Request(models.Model):
 
     def __str__(self):
         return self.document_type.document_name + " request by " + self.user.username
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+@receiver(post_save, sender=Request)
+def broadcast_request_update(sender, instance, **kwargs):
+    from .serializers import RequestSerializer
+    channel_layer = get_channel_layer()
+    serializer = RequestSerializer(instance)
+    async_to_sync(channel_layer.group_send)(
+        'requests_updates',
+        {
+            'type': 'request_message',
+            'message': serializer.data
+        }
+    )

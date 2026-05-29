@@ -33,6 +33,7 @@ ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=[])
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'channels',
     'accounts',
     'documents',
     'credential_requests',
@@ -181,6 +183,8 @@ CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
 # ==============================================================================
 # This block future-proofs the app. If a REDIS_URL is provided, it dynamically 
 # configures the channel layer.
+ASGI_APPLICATION = '_core.asgi.application'
+
 if env('REDIS_URL', default=None):
     CHANNEL_LAYERS = {
         'default': {
@@ -188,6 +192,12 @@ if env('REDIS_URL', default=None):
             'CONFIG': {
                 'hosts': [env('REDIS_URL')],
             },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
     }
 # Trigger restart

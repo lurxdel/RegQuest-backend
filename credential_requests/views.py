@@ -71,22 +71,34 @@ class RequestViewSet(viewsets.ModelViewSet):
     def dashboard(self, request):
         now = timezone.now()
 
+        def parse_docs(row):
+            summary = row.get('document_summary')
+            fallback = row.get('document_type__document_name')
+            if summary:
+                docs = []
+                for line in summary.strip().split('\n'):
+                    if ' x' in line:
+                        docs.append(line.rsplit(' x', 1)[0].strip())
+                    else:
+                        docs.append(line.strip())
+                return [d for d in docs if d]
+            return [fallback] if fallback else []
+
         # Daily: last 7 days
         daily_start = now - timedelta(days=6)
         daily_qs = (
             Request.objects
             .filter(created_at__gte=daily_start)
             .annotate(day=TruncDate('created_at'))
-            .values('day', 'document_type__document_name')
-            .annotate(count=Count('id'))
-            .order_by('day')
+            .values('id', 'day', 'document_type__document_name', 'document_summary')
         )
         daily_map = {}
         for row in daily_qs:
             day_str = row['day'].strftime('%a')
             if day_str not in daily_map:
                 daily_map[day_str] = {}
-            daily_map[day_str][row['document_type__document_name']] = row['count']
+            for doc_name in parse_docs(row):
+                daily_map[day_str][doc_name] = daily_map[day_str].get(doc_name, 0) + 1
 
         daily_data = []
         for i in range(6, -1, -1):
@@ -105,16 +117,15 @@ class RequestViewSet(viewsets.ModelViewSet):
             Request.objects
             .filter(created_at__gte=weekly_start)
             .annotate(week=TruncWeek('created_at'))
-            .values('week', 'document_type__document_name')
-            .annotate(count=Count('id'))
-            .order_by('week')
+            .values('id', 'week', 'document_type__document_name', 'document_summary')
         )
         weekly_map = {}
         for row in weekly_qs:
             week_str = row['week'].strftime('%Y-%W')
             if week_str not in weekly_map:
                 weekly_map[week_str] = {}
-            weekly_map[week_str][row['document_type__document_name']] = row['count']
+            for doc_name in parse_docs(row):
+                weekly_map[week_str][doc_name] = weekly_map[week_str].get(doc_name, 0) + 1
 
         weekly_data = []
         for i in range(6, -1, -1):
@@ -129,20 +140,24 @@ class RequestViewSet(viewsets.ModelViewSet):
 
         # Document type distribution
         total_requests = Request.objects.count()
-        doc_type_qs = (
-            Request.objects
-            .values('document_type__document_name')
-            .annotate(count=Count('id'))
-            .order_by('-count')
-        )
-        doc_distribution = [
-            {
-                'name': row['document_type__document_name'],
-                'count': row['count'],
-                'percentage': round(row['count'] / total_requests * 100, 1) if total_requests else 0,
-            }
-            for row in doc_type_qs
-        ]
+        doc_type_qs = Request.objects.values('id', 'document_type__document_name', 'document_summary')
+        
+        distribution_map = {}
+        total_document_types_requested = 0
+        for row in doc_type_qs:
+            for doc_name in parse_docs(row):
+                distribution_map[doc_name] = distribution_map.get(doc_name, 0) + 1
+                total_document_types_requested += 1
+
+        doc_distribution = []
+        for name, count in distribution_map.items():
+            percentage = round((count / total_document_types_requested) * 100, 1) if total_document_types_requested else 0
+            doc_distribution.append({
+                'name': name,
+                'count': count,
+                'percentage': percentage,
+            })
+        doc_distribution.sort(key=lambda x: x['count'], reverse=True)
 
         # Staff performance
         staff_users = User.objects.filter(role__in=[User.Roles.STAFF, User.Roles.ADMIN])
