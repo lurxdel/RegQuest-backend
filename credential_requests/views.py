@@ -40,7 +40,10 @@ class RequestViewSet(viewsets.ModelViewSet):
             return Request.objects.none()
 
         if user.role == User.Roles.STUDENT:
-            return Request.objects.filter(user=user)
+            return Request.objects.filter(user=user).exclude(tracking_number__startswith='LEGACY-')
+            
+        if user.role == User.Roles.STAFF:
+            return Request.objects.exclude(tracking_number__startswith='LEGACY-')
 
         return Request.objects.all()
 
@@ -203,3 +206,15 @@ class RequestViewSet(viewsets.ModelViewSet):
             'staff_performance': staff_performance,
             'meta': {'total_requests': total_requests, 'generated_at': now.isoformat()},
         })
+
+    @action(detail=False, methods=['get'])
+    def predict_insight(self, request):
+        from .ml_service import get_weekly_prediction
+        prediction = get_weekly_prediction(include_legacy=True)
+        return Response(prediction)
+
+    @action(detail=False, methods=['get'])
+    def predict_insight_staff(self, request):
+        from .ml_service import get_weekly_prediction
+        prediction = get_weekly_prediction(include_legacy=False)
+        return Response(prediction)

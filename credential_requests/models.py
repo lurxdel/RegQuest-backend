@@ -43,8 +43,14 @@ class Request(models.Model):
             self.tracking_number = f"REQ-{uuid.uuid4().hex[:8].upper()}"
 
         if not self.est_release_date:
+            try:
+                from .ml_service import predict_release_date
+                predicted_days = predict_release_date(self.document_type_id)
+            except Exception:
+                predicted_days = 5
+                
             self.est_release_date = (
-                timezone.now() + timedelta(days=5)
+                timezone.now() + timedelta(days=predicted_days)
             )
 
         super().save(*args, **kwargs)
